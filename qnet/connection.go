@@ -57,7 +57,7 @@ func (c *Connection) StartReader() {
     defer c.Stop()
 
     for {
-        buf := make([]buf, 512)
+        buf := make([]byte, 512)
         cnt, err := c.Conn.Read(buf)
         if err != nil {
             fmt.Println("recv buf err: ", err)

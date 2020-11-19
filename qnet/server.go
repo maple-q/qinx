@@ -5,6 +5,7 @@ import "qinx/qiface"
 import "fmt"
 import "time"
 import "net"
+import "errors"
 
 
 type Server struct {
@@ -12,6 +13,19 @@ type Server struct {
     IPVersion string
     IP string
     Port int
+}
+
+
+// 定义当前客户端连接的handle api
+func CallBackToClient(conn *net.TCPConn, data []byte, cnt int) error{
+    // 回显业务
+    fmt.Println("[Conn Handle] CallBackToClient...")
+    if _, err := conn.Write(data[:cnt]); err != nil {
+        fmt.Println("write back buff err: ", err)
+        return errors.New("CallBackToClient error")
+    }
+
+    return nil
 }
 
 
@@ -44,6 +58,9 @@ func (s *Server) Start() {
         }
 
         fmt.Println("start Qinx server ", s.Name, " success, now listening...")
+        // TODO 应该有一个自动生成ID的方法
+        var cid uint32
+        cid = 0
 
         // 等待连接
         for {
@@ -54,23 +71,10 @@ func (s *Server) Start() {
             }
 
             // TODO 设置服务器最大连接数
-            // TODO 此处应该有handler和conn绑定
-            go func() {
-                for {
-                    buf := make([]byte, 512)
-                    cnt, err := conn.Read(buf)
-                    if err != nil {
-                        fmt.Println("recv buf err ", err)
-                        continue
-                    }
-
-                    // 回显
-                    if _, err := conn.Write(buf[:cnt]); err != nil {
-                        fmt.Println("write back buf err ", err)
-                        continue
-                    }
-                }
-            }()
+            dealConn := NewConnection(conn, cid, CallBackToClient)
+            cid ++
+            // 启动当前连接的处理业务，这里每个请求过来都是相同的处理逻辑
+            go dealConn.Start()
         }
     }()
 }
