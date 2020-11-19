@@ -13,6 +13,8 @@ type Server struct {
     IPVersion string
     IP string
     Port int
+    // 当前Server由用户绑定的回调router，也就是Server注册的连接对应的处理业务
+    Router qiface.IRouter
 }
 
 
@@ -35,6 +37,7 @@ func NewServer(name string) qiface.IServer {
         IPVersion: "tcp4",
         IP: "0.0.0.0",
         Port: 7777,
+        Router: nil,
     }
     return s
 }
@@ -71,7 +74,7 @@ func (s *Server) Start() {
             }
 
             // TODO 设置服务器最大连接数
-            dealConn := NewConnection(conn, cid, CallBackToClient)
+            dealConn := NewConnection(conn, cid, s.Router)
             cid ++
             // 启动当前连接的处理业务，这里每个请求过来都是相同的处理逻辑
             go dealConn.Start()
@@ -93,4 +96,10 @@ func (s *Server) Serve() {
     for {
         time.Sleep(10 * time.Second)
     }
+}
+
+// 路由功能，给当前服务注册一个路由业务方法
+func (s *Server) AddRouter(router qiface.IRouter) {
+    s.Router = router
+    fmt.Println("Add Router success!")
 }

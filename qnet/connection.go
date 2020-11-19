@@ -14,21 +14,21 @@ type Connection struct {
     ConnID uint32
     // 当前连接状态
     isClosed bool
-    // 该连接的处理方法api
-    handleAPI qiface.HandFunc
     // 告知该连接已经退出的channel
     ExitBuffChan chan bool
+    // 该链接处理方法的router
+    Router qiface.IRouter
 }
 
 
 // 创建连接的方法
-func NewConnection(conn *net.TCPConn, connID uint32, callbackAPI qiface.HandFunc) *Connection {
+func NewConnection(conn *net.TCPConn, connID uint32, router qiface.IRouter) *Connection {
     return &Connection {
         Conn:        conn,
         ConnID:      connID,
         isClosed:    false,
-        handleAPI:   callbackAPI,
         ExitBuffChan:make(chan bool, 1),
+        Router:      router,
     }
 }
 
@@ -58,19 +58,24 @@ func (c *Connection) StartReader() {
 
     for {
         buf := make([]byte, 512)
-        cnt, err := c.Conn.Read(buf)
+        _, err := c.Conn.Read(buf)
         if err != nil {
             fmt.Println("recv buf err: ", err)
             c.ExitBuffChan <- true
             continue
         }
-
-        // 调用当前连接的业务
-        if err := c.handleAPI(c.Conn, buf, cnt); err != nil {
-            fmt.Println("connID ", c.ConnID, " handle is error")
-            c.ExitBuffChan <- true
-            return
+        // 封装成Request对象
+        req := Request {
+            conn: c,
+            data: buf,
         }
+
+        // 从路由Router中找到注册绑定Conn对应的Handle
+        go func (request qiface.IRequest) {
+            c.Router.PreHandle(request)
+            c.Router.Handle(request)
+            c.Router.PostHandle(request)
+        }(&req)
     }
 }
 
